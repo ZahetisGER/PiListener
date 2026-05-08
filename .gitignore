@@ -1,0 +1,8 @@
+config/.env
+config/.model_cache.json
+logs/
+output/
+models/
+__pycache__/
+*.pyc
+.venv/
