@@ -36,7 +36,7 @@ Das letzte Bild bleibt stehen, bis ein neues generiert wird – wie ein digitale
 ### One-Line Installer
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/GITHUB_USER/PiListener/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ZahetisGER/PiListener/main/install.sh | bash
 ```
 
 ### Manuelle Installation
@@ -51,7 +51,7 @@ sudo apt-get update && sudo apt-get install -y \
 
 2. **Repository klonen:**
 ```bash
-git clone https://github.com/GITHUB_USER/PiListener.git ~/PiListener
+git clone https://github.com/ZahetisGER/PiListener.git ~/PiListener
 cd ~/PiListener
 ```
 

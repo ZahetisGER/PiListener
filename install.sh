@@ -1,10 +1,10 @@
 #!/bin/bash
 # PiListener Installations-Script
-# One-Line Installer: curl -sSL https://raw.githubusercontent.com/GITHUB_USER/PiListener/main/install.sh | bash
+# One-Line Installer: curl -sSL https://raw.githubusercontent.com/ZahetisGER/PiListener/main/install.sh | bash
 
 set -e
 
-REPO_URL="https://github.com/GITHUB_USER/PiListener.git"
+REPO_URL="https://github.com/ZahetisGER/PiListener.git"
 INSTALL_DIR="$HOME/PiListener"
 VENV_DIR="$INSTALL_DIR/.venv"
 
