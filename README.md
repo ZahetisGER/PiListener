@@ -184,19 +184,12 @@ PiListener/
     └────────────────────────────────────────────────────────────┘
 ```
 
-## 🖼️ Beispiel-Bilder
+## 🖼️ Beispiel-Prompts
 
-### Beispiel 1: "Regen trommelt auf das Dach"
-![Beispiel 1](docs/examples/regen-dach.jpg)
-*Prompt: "Regen trommelt auf das Dach" – Generiert um 08:15
+Hier sind Beispiel-Prompts, die das System generiert hat:
 
-### Beispiel 2: "Sonnenuntergang über der Stadt"
-![Beispiel 2](docs/examples/sonnenuntergang-stadt.jpg)
-*Prompt: "Sonnenuntergang über der Stadt" – Generiert um 12:30
-
-### Beispiel 3: "Wald im Nebel"
-![Beispiel 3](docs/examples/wald-nebel.jpg)
-*Prompt: "Wald im Nebel" – Generiert um 18:45
+- **Prompt:** "Regen trommelt auf das Dach" – Generiert um 08:15
+- **Prompt:** "Sonnenuntergang über der Stadt" – Generiert um 12:30
 
 ## 📝 Log-Beispiele
 
