@@ -32,35 +32,13 @@ Das letzte Bild bleibt stehen, bis ein neues generiert wird – wie ein digitale
 
 ## 🚀 Installation
 
-### Schnellstart (Empfohlen)
+### One-Line Installer (Schnellstart)
 
 ```bash
-# Setup Wizard starten
 curl -sSL https://raw.githubusercontent.com/ZahetisGER/PiListener/main/wizard.sh | bash
-
-# Oder direkt im Repository:
-chmod +x wizard.sh && ./wizard.sh
 ```
 
-Der Wizard führt dich durch 10 Schritte:
-```
-[1/10] System-Prüfung          - OS, Python, RAM, Speicherplatz
-[2/10] Verzeichnisse          - Ordner-Struktur erstellen
-[3/10] System-Pakete          - apt-get Pakete installieren
-[4/10] Python Umgebung        - Virtual Environment erstellen
-[5/10] Python-Pakete          - Alle Python-Abhängigkeiten
-[6/10] Audio konfigurieren     - Jabra/USB Mikrofon erkennen
-[7/10] OpenRouter API Key     - Kostenloser API-Key
-[8/10] Whisper Modell         - Base Modell herunterladen
-[9/10] Test-Aufnahme          - Audio-Funktion prüfen
-[10/10] Finalisierung         - Crontab einrichten, fertig!
-```
-
-### One-Line Installer
-
-```bash
-curl -sSL https://raw.githubusercontent.com/ZahetisGER/PiListener/main/install.sh | bash
-```
+Das führt dich durch 10 Schritte: System-Prüfung → Verzeichnisse → Pakete → Python → Audio → API-Key → Whisper → Test → Fertig!
 
 ### Manuelle Installation
 
