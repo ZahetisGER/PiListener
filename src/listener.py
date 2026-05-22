@@ -11,7 +11,6 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Tuple, List
 from dataclasses import dataclass
-import struct
 
 import numpy as np
 import sounddevice as sd
@@ -58,6 +57,12 @@ class TranscriptionResult:
 class AudioListener:
     """ Nimmt Audio auf und erkennt Lautstärke-Pegel. """
 
+    # Known USB audio device name patterns for auto-detection
+    USB_AUDIO_PATTERNS = [
+        "jabra", "speak", "usb", "audio", "microphone", "webcam",
+        "pembridge", "cmedia", "burr-brown", "cm108", "cm119"
+    ]
+
     def __init__(
         self,
         device: Optional[str] = None,
@@ -79,17 +84,53 @@ class AudioListener:
 
         logger.info(f"Audio-Listener initialisiert. Device: {self.device}, Rate: {sample_rate}")
 
+    def _find_usb_device_index(self) -> Optional[int]:
+        """
+        Versucht automatisch ein geeignetes USB Audio Device zu finden.
+
+        Returns:
+            Device Index oder None
+        """
+        try:
+            devices = sd.query_devices()
+            for i, dev in enumerate(devices):
+                dev_name = dev.get('name', '').lower()
+                dev_api = str(dev.get('api', '')).lower()
+
+                # Prüfe auf USB-bezogene Namen oder APIs
+                is_usb = any(pattern in dev_name or pattern in dev_api
+                           for pattern in self.USB_AUDIO_PATTERNS)
+
+                # Jabra Speak spezifisch
+                if 'jabra' in dev_name or 'speak' in dev_name:
+                    logger.info(f"Jabra/USB Gerät erkannt: '{dev.get('name')}' an Index {i}")
+                    return i
+
+                #USB Device
+                if is_usb and dev.get('max_input_channels', 0) > 0:
+                    logger.info(f"USB Audio Device erkannt: '{dev.get('name')}' an Index {i}")
+                    return i
+
+        except sd.PortAudioError as e:
+            logger.warning(f"USB Device Scan fehlgeschlagen: {e}")
+
+        return None
+
     def _resolve_device(self, device: Optional[str]) -> Optional[str]:
         """
         Löst ALSA Device String auf.
 
         Args:
-            device: ALSA Device oder None für Default
+            device: ALSA Device oder None für Default/Auto-Detection
 
         Returns:
-            Aufgelöstes Device
+            Aufgelöstes Device (Index oder None für Default)
         """
         if device is None:
+            # Auto-Detection für USB/Jabra Geräte
+            found_index = self._find_usb_device_index()
+            if found_index is not None:
+                return found_index
             return None
 
         # Prüfe ob Device verfügbar ist
@@ -97,20 +138,41 @@ class AudioListener:
             devices = sd.query_devices()
             logger.debug(f"Verfügbare Audio-Geräte: {len(devices)}")
 
-            # Versuche Device als Index oder Name zu finden
-            if isinstance(device, str):
-                # ALSA Format wie 'hw:CARD=Speak,DEV=0'
-                if device.startswith('hw:'):
-                    # Finde对应的 Index
-                    for i, dev in enumerate(devices):
-                        dev_name = dev.get('name', '')
-                        if device.split(',')[0].replace('hw:', '') in dev_name:
-                            logger.info(f"Device '{device}' gefunden als Index {i}")
-                            return i
-                elif device.isdigit():
-                    idx = int(device)
+            # ALSA Format wie 'hw:CARD=Speak,DEV=0'
+            if device.startswith('hw:'):
+                card_part = device.split(',')[0].replace('hw:', '')
+                dev_part = device.split(',')[1] if ',' in device else 'DEV=0'
+
+                # Versuche Card Name匹配
+                for i, dev in enumerate(devices):
+                    dev_name = dev.get('name', '')
+                    if card_part.lower() in dev_name.lower():
+                        logger.info(f"Device '{device}' gefunden als Index {i}")
+                        return i
+
+                # Fallback: Versuche als Device Index
+                try:
+                    idx = int(card_part.replace('CARD=', '').replace('card', ''))
                     if idx < len(devices):
                         return idx
+                except ValueError:
+                    pass
+
+            # Numerischer Index
+            elif device.isdigit():
+                idx = int(device)
+                if idx < len(devices):
+                    logger.info(f"Device Index {idx} verwendet: {devices[idx].get('name')}")
+                    return idx
+                else:
+                    logger.warning(f"Device Index {idx} nicht verfügbar (max: {len(devices)-1})")
+
+            # String "Jabra" oder "Speak" → Auto-Detection
+            elif any(p in device.lower() for p in ['jabra', 'speak']):
+                found_index = self._find_usb_device_index()
+                if found_index is not None:
+                    return found_index
+
         except sd.PortAudioError as e:
             logger.warning(f"Device-Abfrage fehlgeschlagen: {e}")
 
@@ -235,6 +297,24 @@ class AudioListener:
                 return 0 <= self.device < len(devices)
             return True
         except:
+            return False
+
+    def reconnect(self) -> bool:
+        """
+        Versucht das Device nach einem Wechsel (z.B. USB hotplug) neu zu verbinden.
+
+        Returns:
+            True wenn Device erneut gefunden
+        """
+        old_device = self.device
+        self.device = self._resolve_device(None)  # Full auto-detection
+
+        if self.device is not None:
+            logger.info(f"Device reconnected: Index {self.device}")
+            return True
+        else:
+            # Fallback: altes Device versuchen
+            self.device = old_device
             return False
 
 

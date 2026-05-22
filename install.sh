@@ -12,13 +12,43 @@ echo "=========================================="
 echo "  PiListener Installation"
 echo "=========================================="
 
+#Farben
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
 # 1. System-Pakete installieren
 echo "[1/9] Installiere System-Pakete..."
 sudo apt-get update
-sudo apt-get install -y \
-    python3 python3-pip python3-venv python3-dev git ffmpeg \
-    libasound2-dev libportaudio2 libportaudiocpp0 portaudio19-dev \
-    x11-xserver-utils unclutter pulseaudio
+
+# Basis-Pakete (immer erforderlich)
+BASE_PKGS="python3 python3-pip python3-venv python3-dev git ffmpeg libasound2-dev"
+
+# Audio-Pakete (flexibel - versuche verschiedene Paketnamen)
+AUDIO_PKGS=""
+for pkg in "portaudio19-dev" "libportaudio2 portaudio19-dev" "libportaudiocpp0"; do
+    if apt-cache show "$pkg" &>/dev/null 2>&1; then
+        AUDIO_PKGS="$pkg"
+        break
+    fi
+done
+if [ -z "$AUDIO_PKGS" ]; then
+    echo -e "${YELLOW}PortAudio Paket nicht gefunden, versuche Alternative...${NC}"
+    apt-get install -y portaudio19-dev libportaudio2 2>/dev/null || true
+fi
+
+# X11/Unclutter
+X11_PKGS="x11-xserver-utils unclutter"
+if ! dpkg -l | grep -q unclutter; then
+    apt-get install -y $X11_PKGS 2>/dev/null || sudo apt-get install -y $X11_PKGS
+fi
+
+# Alle Pakete installieren
+sudo apt-get install -y $BASE_PKGS $AUDIO_PKGS $X11_PKGS 2>/dev/null || \
+sudo apt-get install -y python3 python3-pip python3-venv python3-dev git ffmpeg libasound2-dev portaudio19-dev
+
+echo -e "${GREEN}System-Pakete installiert${NC}"
 
 # 2. Verzeichnis erstellen und Repo klonen
 echo "[2/9] Klone Repository..."
@@ -37,8 +67,18 @@ python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 
 echo "[4/9] Installiere Python-Pakete..."
-pip install --upgrade pip
-pip install -r requirements.txt
+pip install --upgrade pip setuptools wheel
+
+# Installiere Pakete mit Fehlerbehandlung
+if pip install -r requirements.txt; then
+    echo -e "${GREEN}Python-Pakete installiert${NC}"
+else
+    echo -e "${YELLOW}Einige Pakete konnten nicht installiert werden, versuche alternatif...${NC}"
+    # Versuche Pakete einzeln zu installieren für bessere Fehlerdiagnose
+    pip install faster-whisper openai Pillow pygame loguru python-dotenv requests sounddevice numpy schedule pytest pytest-mock 2>/dev/null || \
+    pip install faster-whisper openai Pillow pygame loguru python-dotenv requests sounddevice numpy pytest pytest-mock 2>/dev/null || \
+    echo -e "${YELLOW}Manuelle Paketinstallation erforderlich${NC}"
+fi
 
 # 5. Konfigurationsdateien erstellen
 echo "[5/9] Erstelle Konfigurationsdateien..."
@@ -55,12 +95,19 @@ fi
 # 6. Whisper-Modell herunterladen (bei Installation, NICHT lazy)
 echo "[6/9] Lade Whisper-Modell (base) herunter..."
 export PYTHONPATH="$INSTALL_DIR/src:$PYTHONPATH"
-python3 -c "
+
+# Prüfe ob faster-whisper installiert ist
+if python3 -c "from faster_whisper import WhisperModel" 2>/dev/null; then
+    python3 -c "
 from faster_whisper import WhisperModel
 print('Lade Whisper base Modell...')
 model = WhisperModel('base', device='cpu', compute_type='int8')
 print('Whisper Modell bereit!')
 "
+    echo -e "${GREEN}Whisper Modell heruntergeladen${NC}"
+else
+    echo -e "${YELLOW}Whisper nicht verfügbar - wird beim ersten Start heruntergeladen${NC}"
+fi
 
 # 7. Audio-Quellen auflisten und Auswahl
 echo "[7/9] Konfiguriere Audio-Quelle..."
@@ -72,11 +119,15 @@ if [ "$1" = "--audio-source" ]; then
     exit 0
 fi
 
-# Listet Geräte auf
-"$INSTALL_DIR/src/audio_devices.sh"
+# Listet Geräte auf (ignoriere Fehler wenn nicht als Root)
+"$INSTALL_DIR/src/audio_devices.sh" 2>/dev/null || true
 
-# Interaktive Auswahl
-sudo "$INSTALL_DIR/src/setup_audio_source.sh"
+# Interaktive Auswahl (nur wenn Audio-Geräte erkannt wurden)
+if command -v arecord &> /dev/null && arecord -l &>/dev/null; then
+    sudo "$INSTALL_DIR/src/setup_audio_source.sh" 2>/dev/null || true
+else
+    echo -e "${YELLOW}Keine Audio-Geräte erkannt - USB-Jabra nach Anschluss konfigurieren${NC}"
+fi
 
 # 8. OpenRouter API Key interaktiv abfragen
 echo "[8/9] OpenRouter API Key..."
@@ -112,6 +163,12 @@ echo "Crontab aktualisiert (alle 5 Minuten)"
 # Unclutter für Cursor verstecken starten
 echo "Starte unclutter für Cursor-Verbergung..."
 (sleep 2 && unclutter -idle 2 -root) &
+
+# PulseAudio starten falls nicht aktiv
+if ! pulseaudio --check 2>/dev/null; then
+    echo "Starte PulseAudio..."
+    pulseaudio --start 2>/dev/null || true
+fi
 
 echo ""
 echo "=========================================="

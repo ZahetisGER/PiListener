@@ -18,6 +18,7 @@ from src.listener import AudioListener, STTEngine, AudioData
 from src.image_generator import ImageGenerator
 from src.display import DisplayManager
 from src.model_selector import get_model_selector
+from src.webserver import PiListenerWebServer
 
 logger = None
 
@@ -46,6 +47,7 @@ class PiListener:
         self.image_generator: Optional[ImageGenerator] = None
         self.display: Optional[DisplayManager] = None
         self.model_selector = None
+        self.webserver: Optional[PiListenerWebServer] = None
 
         # Letztes Bild merken (für Persistenz)
         self.last_image_path: Optional[str] = None
@@ -54,6 +56,7 @@ class PiListener:
         # Status
         self.running = True
         self.initialized = False
+        self.trigger_cycle_now = False
 
         logger.info("=" * 50)
         logger.info("PiListener startet...")
@@ -92,6 +95,14 @@ class PiListener:
                 self.model_selector.update_model_list()
             except ValueError as e:
                 logger.warning(f"Model-Selektor nicht verfügbar: {e}")
+
+            # Webserver
+            logger.info("Initialisiere Webserver...")
+            try:
+                self.webserver = PiListenerWebServer(pilistener_instance=self)
+                self.webserver.start()
+            except Exception as e:
+                logger.warning(f"Webserver nicht verfügbar: {e}")
 
             self.initialized = True
             logger.info("Alle Komponenten initialisiert")
@@ -222,6 +233,14 @@ class PiListener:
             logger.error(f"Fehler im Zyklus: {e}")
             return False
 
+    def reload_config(self) -> None:
+        """Lädt Konfiguration neu aus .env Datei."""
+        load_dotenv("config/.env")
+        self.interval_minutes = int(os.getenv("LISTEN_INTERVAL_MINUTES", "15"))
+        self.listen_duration = int(os.getenv("LISTEN_DURATION_SECONDS", "20"))
+        self.silence_threshold = float(os.getenv("SILENCE_THRESHOLD_DB", "30"))
+        logger.info("Konfiguration neu geladen")
+
     def _show_welcome(self) -> None:
         """Zeigt ein Willkommens-Bild beim Start."""
         welcome_path = Path("output/welcome.jpg")
@@ -255,14 +274,21 @@ class PiListener:
 
         # Hauptschleife
         while self.running:
-            # Warte bis zum nächsten Zyklus
-            self._wait_until_next_cycle()
+            # Prüfe ob sofortiger Zyklus gewünscht
+            if self.trigger_cycle_now:
+                logger.info("Sofortiger Zyklus über Webserver angefordert")
+                self.trigger_cycle_now = False
+                self._run_cycle()
+            else:
+                # Warte bis zum nächsten Zyklus
+                self._wait_until_next_cycle()
 
             if not self.running:
                 break
 
             # Führe Zyklus aus
-            self._run_cycle()
+            if not self.trigger_cycle_now:
+                self._run_cycle()
 
         # Cleanup
         self._shutdown()
@@ -270,6 +296,9 @@ class PiListener:
     def _shutdown(self) -> None:
         """Fährt das System sauber herunter."""
         logger.info("Fahre PiListener herunter...")
+
+        if self.webserver:
+            self.webserver.stop()
 
         if self.display:
             self.display.close()

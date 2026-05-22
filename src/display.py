@@ -96,6 +96,7 @@ class DisplayManager:
         except pygame.error as e:
             logger.error(f"Display-Setup fehlgeschlagen: {e}")
             # Fallback zu Fenster-Modus
+            logger.warning("Fall back to windowed mode - fullscreen not available")
             self.fullscreen = False
             self.screen = pygame.display.set_mode((self.width, self.height))
 
