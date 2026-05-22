@@ -19,6 +19,7 @@ from src.image_generator import ImageGenerator
 from src.display import DisplayManager
 from src.model_selector import get_model_selector
 from src.webserver import PiListenerWebServer
+from src.gallery import GalleryServer
 
 logger = None
 
@@ -48,6 +49,7 @@ class PiListener:
         self.display: Optional[DisplayManager] = None
         self.model_selector = None
         self.webserver: Optional[PiListenerWebServer] = None
+        self.gallery: Optional[GalleryServer] = None
 
         # Letztes Bild merken (für Persistenz)
         self.last_image_path: Optional[str] = None
@@ -103,6 +105,14 @@ class PiListener:
                 self.webserver.start()
             except Exception as e:
                 logger.warning(f"Webserver nicht verfügbar: {e}")
+
+            # Gallery Server
+            logger.info("Initialisiere Gallery Server...")
+            try:
+                self.gallery = GalleryServer()
+                self.gallery.start()
+            except Exception as e:
+                logger.warning(f"Gallery Server nicht verfügbar: {e}")
 
             self.initialized = True
             logger.info("Alle Komponenten initialisiert")
@@ -299,6 +309,9 @@ class PiListener:
 
         if self.webserver:
             self.webserver.stop()
+
+        if self.gallery:
+            self.gallery.stop()
 
         if self.display:
             self.display.close()
