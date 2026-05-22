@@ -2,36 +2,59 @@
 
 *Ein Raspberry Pi 4 Projekt, das alle 15 Minuten für 20 Sekunden lauscht, Gehörtes in Text verwandelt, und daraus KI-Bilder generiert.*
 
-![PiListener Architektur](docs/architecture.png)
-
 ## Was ist PiListener?
 
 PiListener ist ein kreatives KI-System, das auf einem Raspberry Pi 4 mit einem Jabra Speak USB-Mikrofon läuft. In regelmäßigen Intervallen nimmt das System Audio auf, transkribiert es mit Whisper zu Text, und generiert mit Stable Diffusion oder anderen kostenlosen KI-Modellen ein Bild, das auf einem HDMI-Display in Vollbild angezeigt wird.
 
-Das letzte Bild bleibt stehen, bis ein neues generiert wird – wie ein digitaler Bildschirm für akustche Erinnerungen.
+Das letzte Bild bleibt stehen, bis ein neues generiert wird – wie ein digitaler Bildschirm für akustische Erinnerungen.
 
 ## ✨ Features
 
 - **Automatisches Audio-Monitoring** – Alle 15 Minuten 20 Sekunden Aufnahme
-- **Stille-Erkennung** – Kein Bild bei zu leiser Umgebung
+- **USB/Jabra Auto-Detection** – Automatische Erkennung von USB-Mikrofonen
 - **Lokale STT** – faster-whisper auf CPU (keine Cloud-Kosten)
 - **Fallback-Kette** – OpenRouter Whisper API → Akustische Beschreibung
 - **Dynamische Model-Auswahl** – Wählt beste kostenlose Modelle
 - **KI-Bildgenerierung** – Stable Diffusion XL via OpenRouter
 - **Vollbild-Anzeige** – HDMI-Display mit Titel-Balken
 - **Metadaten** – Original-Prompt im Bild gespeichert
-- **Resilient** – Kein Crash bei Jabra-Disconnect oder Netzwerkfehlern
+- **Webserver** – Status und Steuerung via Browser (http://localhost:8000)
+- **Setup Wizard** – Einfache 10-Schritt Installation
 
 ## 🖥️ Hardware
 
 | Komponente | Spezifikation |
 |------------|---------------|
 | **Raspberry Pi** | Pi 4 4GB RAM |
-| **Mikrofon** | Jabra Speak 410/510/750 (USB) |
+| **Mikrofon** | Jabra Speak 410/510/750 (USB) oder anderes USB-Mikrofon |
 | **Display** | HDMI (Full HD 1920x1080) |
 | **Betriebssystem** | Raspberry Pi OS (Bookworm) |
 
 ## 🚀 Installation
+
+### Schnellstart (Empfohlen)
+
+```bash
+# Setup Wizard starten
+curl -sSL https://raw.githubusercontent.com/ZahetisGER/PiListener/main/wizard.sh | bash
+
+# Oder direkt im Repository:
+chmod +x wizard.sh && ./wizard.sh
+```
+
+Der Wizard führt dich durch 10 Schritte:
+```
+[1/10] System-Prüfung          - OS, Python, RAM, Speicherplatz
+[2/10] Verzeichnisse          - Ordner-Struktur erstellen
+[3/10] System-Pakete          - apt-get Pakete installieren
+[4/10] Python Umgebung        - Virtual Environment erstellen
+[5/10] Python-Pakete          - Alle Python-Abhängigkeiten
+[6/10] Audio konfigurieren     - Jabra/USB Mikrofon erkennen
+[7/10] OpenRouter API Key     - Kostenloser API-Key
+[8/10] Whisper Modell         - Base Modell herunterladen
+[9/10] Test-Aufnahme          - Audio-Funktion prüfen
+[10/10] Finalisierung         - Crontab einrichten, fertig!
+```
 
 ### One-Line Installer
 
@@ -45,8 +68,7 @@ curl -sSL https://raw.githubusercontent.com/ZahetisGER/PiListener/main/install.s
 ```bash
 sudo apt-get update && sudo apt-get install -y \
     python3 python3-pip python3-venv python3-dev git ffmpeg \
-    libasound2-dev libportaudio2 libportaudiocpp0 portaudio19-dev \
-    x11-xserver-utils unclutter pulseaudio
+    libasound2-dev portaudio19-dev x11-xserver-utils unclutter
 ```
 
 2. **Repository klonen:**
@@ -78,7 +100,39 @@ python3 -c "from faster_whisper import WhisperModel; WhisperModel('base', device
 python src/main.py
 ```
 
-### Crontab (optional)
+### Audio-Gerät einrichten
+
+```bash
+# Verfügbare Geräte anzeigen
+./src/audio_devices.sh
+
+# Interaktives Setup
+sudo ./src/setup_audio_source.sh
+
+# Oder direkt konfigurieren:
+# In config/.env: AUDIO_SOURCE=hw:CARD=Speak,DEV=0
+```
+
+## 📱 Bedienung
+
+### Manueller Start
+
+```bash
+cd ~/PiListener
+source .venv/bin/activate
+python src/main.py
+```
+
+### Web-Interface
+
+Nach dem Start ist das System unter http://localhost:8000 erreichbar:
+
+- **Status anzeigen** – Aktueller Zustand und letzte Bilder
+- **Zyklus triggern** – Sofortige Audio-Aufnahme starten
+- **Konfiguration neu laden** – .env Änderungen übernehmen
+- **System beenden** – Sauberes Herunterfahren
+
+### Crontab (automatisches Starten)
 
 ```bash
 # Alle 15 Minuten ausführen
@@ -87,14 +141,14 @@ python src/main.py
 
 ## 💰 Kostenlose Modelle
 
-| Model | Provider | Task | API |
-|-------|----------|------|-----|
-| Whisper Base | faster-whisper (lokal) | STT | Kostenlos |
-| SDXL Turbo | OpenRouter | Image | kostenloses Kontingent |
-| Stable Diffusion XL | NVIDIA | Image | kostenlos |
-| Claude 3.5 Sonnet | OpenRouter | Image | kostenloses Kontingent |
+| Model | Provider | Task | Kosten |
+|-------|----------|------|--------|
+| Whisper Base | faster-whisper (lokal) | STT | ✓ |
+| SDXL Turbo | OpenRouter | Image | ✓ |
+| Stable Diffusion XL | NVIDIA | Image | ✓ |
+| Claude 3.5 Sonnet | OpenRouter | Image | ✓ |
 
-Mehr Modelle auf:
+Mehr kostenlose Modelle:
 - [OpenRouter Free Models](https://openrouter.ai/models?free=true)
 - [NVIDIA Build](https://build.nvidia.com)
 
@@ -111,19 +165,18 @@ PiListener/
 │   └── YYYY-MM/             # Generierte Bilder
 ├── src/
 │   ├── __init__.py
-│   ├── listener.py           # Audio-Capture + STT
+│   ├── listener.py           # Audio-Capture + STT + USB-Erkennung
 │   ├── image_generator.py   # Bildgenerierung
 │   ├── display.py           # Vollbild-Anzeige
 │   ├── model_selector.py    # Model-Auswahl
+│   ├── webserver.py         # HTTP Status/Steuerung
 │   ├── logger.py            # Logging
+│   ├── audio_devices.sh      # Audio-Geräte auflisten
+│   ├── setup_audio_source.sh # Audio-Setup Wizard
 │   └── main.py              # Hauptschleife
-├── tests/
-│   ├── test_listener.py
-│   ├── test_stt.py
-│   ├── test_image_generator.py
-│   ├── test_display.py
-│   └── test_model_selector.py
-├── install.sh                # One-Line Installer
+├── tests/                    # pytest Tests
+├── wizard.sh                # Interaktiver Setup Wizard
+├── install.sh               # One-Line Installer
 ├── requirements.txt
 ├── README.md
 └── .gitignore
@@ -137,9 +190,9 @@ PiListener/
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    │
-│   │   Jabra      │───▶│   Audio      │───▶│    STT       │    │
+│   │   Jabra/USB  │───▶│   Audio      │───▶│    STT       │    │
 │   │   Speak      │    │   Listener   │    │   (Whisper)  │    │
-│   │   (USB)      │    │              │    │              │    │
+│   │   Mikrofon   │    │  + Auto-Detect│   │              │    │
 │   └──────────────┘    └──────────────┘    └──────┬───────┘    │
 │                                                   │            │
 │                                                   ▼            │
@@ -149,74 +202,82 @@ PiListener/
 │   │   Vollbild   │    │              │    │    (SDXL)     │    │
 │   └──────────────┘    └──────────────┘    └──────────────┘    │
 │                                                                 │
-│   ┌──────────────┐    ┌──────────────┐                         │
-│   │    Model     │───▶│    Config    │                         │
-│   │   Selector   │    │   (.env)     │                         │
-│   └──────────────┘    └──────────────┘                         │
+│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    │
+│   │    Model     │───▶│    Config    │    │   Webserver  │    │
+│   │   Selector   │    │   (.env)     │    │   :8000      │    │
+│   └──────────────┘    └──────────────┘    └──────────────┘    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 
     Zyklus (alle 15 Minuten):
-    
+
     ┌────────────────────────────────────────────────────────────┐
-    │                                                            │
-    │    1. WARTEN bis zur vollen 15-Min-Markierung             │
+    │  1. WARTEN bis zur vollen 15-Min-Markierung               │
     │              │                                              │
     │              ▼                                              │
-    │    2. AUDIO AUFNAHME (20 Sekunden)                         │
+    │  2. USB/JABRA ERKENNUNG (auto-detect)                       │
     │              │                                              │
     │              ▼                                              │
-    │    3. STILLE-PRÜFUNG (RMS > 30dB?)                         │
+    │  3. AUDIO AUFNAHME (20 Sekunden)                          │
+    │              │                                              │
+    │              ▼                                              │
+    │  4. STILLE-PRÜFUNG (RMS > 30dB?)                          │
     │              │                                              │
     │         Nein │                                              │
     │              ▼                                              │
-    │    4. STT TRANSKRIPTION (Whisper)                          │
+    │  5. STT TRANSKRIPTION (Whisper lokal)                     │
     │              │                                              │
     │              ▼                                              │
-    │    5. BILDGENERIERUNG (OpenRouter/SDXL)                     │
+    │  6. BILDGENERIERUNG (OpenRouter/SDXL)                      │
     │              │                                              │
     │              ▼                                              │
-    │    6. BILD SPEICHERN (mit Metadaten)                       │
+    │  7. BILD SPEICHERN (mit Prompt-Metadaten)                 │
     │              │                                              │
     │              ▼                                              │
-    │    7. VOLLBILD-ANZEIGE (letztes Bild bleibt)              │
-    │                                                            │
+    │  8. VOLLBILD-ANZEIGE (auf HDMI)                           │
+    │              │                                              │
+    │              ▼                                              │
+    │  9. STATUS PER WEBSEERVER (http://localhost:8000)        │
     └────────────────────────────────────────────────────────────┘
 ```
-
-## 🖼️ Beispiel-Prompts
-
-Hier sind Beispiel-Prompts, die das System generiert hat:
-
-- **Prompt:** "Regen trommelt auf das Dach" – Generiert um 08:15
-- **Prompt:** "Sonnenuntergang über der Stadt" – Generiert um 12:30
 
 ## 📝 Log-Beispiele
 
 ```
-[2026-05-08 02:15:00] INFO: Zyklus gestartet
-[2026-05-08 02:15:00] INFO: Audio: 20s aufgenommen, RMS=45dB
-[2026-05-08 02:15:08] INFO: STT: "Regen trommelt auf das dach"
-[2026-05-08 02:15:08] INFO: Model STT: faster-whisper (lokal)
-[2026-05-08 02:15:22] INFO: Image generiert: 1024x576
-[2026-05-08 02:15:22] INFO: Model Image: stable-diffusion-xl
-[2026-05-08 02:15:22] INFO: Gespeichert: output/2026-05/2026-05-08-0215-regen-trommelt.jpg
-[2026-05-08 02:15:22] INFO: Angezeigt auf Display
-[2026-05-08 02:15:22] INFO: Zyklus beendet
+[2026-05-22 08:15:00] INFO: PiListener startet...
+[2026-05-22 08:15:01] INFO: Audio-Listener initialisiert. Device: 2, Rate: 16000
+[2026-05-22 08:15:01] INFO: USB Audio Device erkannt: 'Jabra Speak 410' an Index 2
+[2026-05-22 08:15:02] INFO: ImageGenerator initialisiert: 1920x1080, Qualität: 85
+[2026-05-22 08:15:03] INFO: Display initialisiert: 1920x1080, Fullscreen: True
+[2026-05-22 08:15:04] INFO: WebServer gestartet auf http://0.0.0.0:8000
+[2026-05-22 08:15:05] INFO: Alle Komponenten initialisiert
+[2026-05-22 08:15:05] INFO: PiListener läuft im Hintergrund...
+
+[2026-05-22 08:30:00] INFO: Zyklus gestartet um 08:30:00
+[2026-05-22 08:30:00] INFO: Nehme 20s Audio auf...
+[2026-05-22 08:30:00] INFO: Audio aufgenommen: RMS=45.2dB
+[2026-05-22 08:30:08] INFO: STT: "Regen trommelt auf das dach"
+[2026-05-22 08:30:08] INFO: STT Model: faster-whisper-base
+[2026-05-22 08:30:22] INFO: Bild generiert: 1920x1080, 245KB
+[2026-05-22 08:30:23] INFO: Bild gespeichert: output/2026-05/2026-05-22-0830-regen-trommelt.jpg
+[2026-05-22 08:30:23] INFO: Angezeigt auf Display
+[2026-05-22 08:30:23] INFO: Zyklus erfolgreich beendet in 23.5s
 ```
 
-### Fehler-Logs
+### Fehler-Logs (mit Fallback)
 
 ```
-[2026-05-08 03:00:00] WARNING: Stille erkannt (RMS=22dB), kein Bild
-[2026-05-08 04:15:00] ERROR: STT fehlgeschlagen: connection timeout
-[2026-05-08 04:15:00] INFO: Fallback: akustische Beschreibung
+[2026-05-22 09:00:00] WARNING: Stille erkannt (RMS=22dB < 30dB), kein Bild
+[2026-05-22 09:15:00] ERROR: OpenRouter API Fehler: quota exceeded
+[2026-05-22 09:15:00] INFO: Fallback: akustische Beschreibung generiert
+[2026-05-22 09:15:00] INFO: STT (Fallback/Beschreibung): "Es klingt nach: ferne Stimme"
 ```
 
 ## 🧪 Tests
 
 ```bash
 # Alle Tests ausführen
+source .venv/bin/activate
 pytest tests/ -v
 
 # Einzelne Tests
@@ -233,7 +294,7 @@ Bearbeite `config/.env`:
 # API
 OPENROUTER_API_KEY=sk-or-v1-dein-key
 
-# Audio
+# Audio (wird auto-detected wenn leer)
 AUDIO_SOURCE=hw:CARD=Speak,DEV=0
 LISTEN_INTERVAL_MINUTES=15
 LISTEN_DURATION_SECONDS=20
@@ -248,6 +309,10 @@ IMAGE_QUALITY=85
 FULLSCREEN=true
 SHOW_TITLE_BAR=true
 
+# Webserver
+WEB_PORT=8000
+WEB_HOST=0.0.0.0
+
 # Logging
 LOG_LEVEL=INFO
 
@@ -258,53 +323,49 @@ LANGUAGE=de
 
 ## 🐛 Troubleshooting
 
-**Problem:** Jabra wird nicht erkannt
+**Problem:** Jabra/USB-Mikrofon wird nicht erkannt
+
 ```bash
-# ALSA Devices prüfen
-arecord -l
-# Device in config/.env anpassen
+# Verfügbare Geräte anzeigen
+./src/audio_devices.sh
+
+# Manuell konfigurieren
+sudo ./src/setup_audio_source.sh
 ```
 
-**Problem:** Schwarzer Bildschirm
+**Problem:** Schwarzer Bildschirm beim Start
+
 ```bash
 # X11 prüfen
 echo $DISPLAY
 # Sollte :0 sein
+
+# Als nicht-root starten (X11 Berechtigung)
+xhost +local:nonroot
 ```
 
 **Problem:** Bildgenerierung schlägt fehl
+
 ```bash
 # API Key prüfen
-cat config/.env | grep OPENROUTER
-# Quota prüfen auf openrouter.ai
+grep OPENROUTER config/.env
+
+# Quota prüfen auf openrouter.ai/credits
+```
+
+**Problem:** Webserver nicht erreichbar
+
+```bash
+# Port prüfen
+ss -tlnp | grep 8000
+
+# Firewall prüfen
+sudo ufw allow 8000
 ```
 
 ## 📄 Lizenz
 
 MIT License - siehe [LICENSE](LICENSE) Datei.
-
-## 🤝 Contributing
-
-### Commit-Konventionen
-
-Bitte nutze folgende Prefixes:
-
-- `feat:` – Neue Features
-- `fix:` – Bugfixes
-- `docs:` – Dokumentation
-- `chore:` – Wartung, Refactoring
-
-### Workflow
-
-1. Fork erstellen
-2. Feature-Branch: `git checkout -b feat/neues-feature`
-3. Commit: `git commit -m "feat: neues Feature hinzugefügt"`
-4. Push: `git push origin feat/neues-feature`
-5. Pull Request öffnen
-
----
-
-**Hinweis:** Dies ist ein privates Repository. Bitte fork erstellen für eigene Änderungen.
 
 ## 🙏 Danke an
 
